@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:wallet/components/buttons.dart';
 import 'package:wallet/components/neu_box.dart';
+import 'package:wallet/database/expense_database.dart';
+import 'package:wallet/helper/helper_functions.dart';
+import 'package:wallet/models/expense.dart';
+import 'package:provider/provider.dart';
 
 class AddTransaction extends StatefulWidget {
   const AddTransaction({super.key});
@@ -10,8 +14,59 @@ class AddTransaction extends StatefulWidget {
 }
 
 class _AddTransactionState extends State<AddTransaction> {
+
+  Future<void> createNewExpense() async {
+    if (_accountController.text.isEmpty ||
+        _categoryController.text.isEmpty ||
+        _titleController.text.isEmpty ||
+        disp.isEmpty) {
+      // Show an error message if any field is empty
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all fields')),
+      );
+      return;
+    }
+
+    try {
+      Expense newExpense = Expense(
+        convertStringToDouble(disp),
+        DateTime.now(),
+        _accountController.text,
+        _categoryController.text,
+        _noteController.text,
+        exp,
+        title: _titleController.text,
+      );
+
+      await context.read<ExpenseDatabase>().createANewExpense(newExpense);
+
+      // Clear text fields after saving
+      _accountController.clear();
+      _categoryController.clear();
+      _titleController.clear();
+      _noteController.clear();
+      disp = "0";
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Expense added successfully')),
+      );
+    } catch (e) {
+      // Handle any errors
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    }
+  }
+
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _noteController = TextEditingController();
+  final TextEditingController _accountController = TextEditingController();
+  final TextEditingController _categoryController = TextEditingController();
+
   String disp = '0';
   String result = "";
+  bool exp = true;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +110,11 @@ class _AddTransactionState extends State<AddTransaction> {
                         ),
                       ),
                       MaterialButton(
-                        onPressed: () {},
+                        onPressed: () async{
+                          await createNewExpense();
+
+                          Navigator.pop(context);
+                        },
                         child: const Row(
                           children: [
                             Icon(Icons.check_rounded),
@@ -73,7 +132,11 @@ class _AddTransactionState extends State<AddTransaction> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       TextButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          setState(() {
+                            exp = false;
+                          });
+                        },
                         child: const Text("INCOME"),
                       ),
                       Container(
@@ -83,63 +146,106 @@ class _AddTransactionState extends State<AddTransaction> {
                         child: const Text(""),
                       ),
                       TextButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          setState(() {
+                            exp = true;
+                          });
+                        },
                         child: const Text("EXPENSE"),
-                      ),
-                      Container(
-                        decoration: const BoxDecoration(
-                          border: Border(left: BorderSide(color: Colors.black)),
-                        ),
-                        child: const Text(""),
-                      ),
-                      TextButton(
-                        onPressed: () {},
-                        child: const Text("TRANSFER"),
                       ),
                     ],
                   ),
                   const SizedBox(height: 5,),
                   // account and category selector
-                  const Row(
+                  Row(
                     children: [
                       Expanded(
                           flex: 1,
                           child: NeuBox(
-                              child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.wallet_rounded),
-                              SizedBox(
-                                width: 5,
+                              child: DropdownButtonFormField<String>(
+                                dropdownColor:
+                                const Color.fromRGBO(215, 235, 250, 1),
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  icon: Icon(Icons.wallet_rounded),
+                                ),
+                                value: 'none',
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'none',
+                                    child: Text('Account'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'cash',
+                                    child: Text('Cash'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'card',
+                                    child: Text('Card'),
+                                  ),
+                                  // Add more country codes here
+                                ],
+                                // onChanged: (value) {},
+                                onChanged: (value) => _accountController.text = value!,
                               ),
-                              Text("Account")
-                            ],
-                          ))),
-                      SizedBox(width: 20,),
+                          )),
+                      const SizedBox(width: 20,),
                       Expanded(
                           flex: 1,
                           child: NeuBox(
-                              child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.category_rounded),
-                              SizedBox(
-                                width: 5,
+                              child: DropdownButtonFormField<String>(
+                                dropdownColor:
+                                const Color.fromRGBO(215, 235, 250, 1),
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  icon: Icon(Icons.category_rounded),
+                                ),
+                                value: 'none',
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'none',
+                                    child: Text('Category'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'cash',
+                                    child: Text('Cash'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'card',
+                                    child: Text('Card'),
+                                  ),
+                                  // Add more country codes here
+                                ],
+                                // onChanged: (value) {},
+                                onChanged: (value) => _categoryController.text = value!,
                               ),
-                              Text("Category")
-                            ],
-                          )))
+                          ))
                     ],
                   ),
                   const SizedBox(height: 17,),
-                  // Add note Text box
-                  const SizedBox(
-                    height: 134, // Custom height
+                  // Add title Text box
+                  SizedBox(
+                    height: 45,
                     child: NeuBox(
                       child: TextField(
-                        minLines: 4,
-                        maxLines: 4,
-                        decoration: InputDecoration(
+                        controller: _titleController,
+                        minLines: 1,
+                        maxLines: 1,
+                        decoration: const InputDecoration(
+                            border: InputBorder.none, hintText: "Add Title"),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 17,),
+                  // Add note Text box
+                  SizedBox(
+                    height: 85, // Custom height
+                    child: NeuBox(
+                      child: TextField(
+                        controller: _noteController,
+                        minLines: 2,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
                             border: InputBorder.none, hintText: "Add Note"),
                       ),
                     ),

@@ -32,7 +32,7 @@ class Buttons extends StatelessWidget {
               ),
               BoxShadow(
                   color: isDarkMode? Colors.grey.shade800 : Colors.white,
-                  blurRadius: 10,
+                  blurRadius: 6,
                   offset: const Offset(-4, -4)
               ),
             ]

@@ -22,7 +22,7 @@ class TransactionTile extends StatelessWidget {
             children: [
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.greenAccent,
+                  color: Color.fromRGBO(07,202,222, 1),
                   borderRadius: BorderRadius.circular(50),
                 ),
                 child: Padding(
@@ -61,7 +61,7 @@ class TransactionTile extends StatelessWidget {
                 child: Icon(expense == true ? Icons.upload_rounded: Icons.download_rounded),
               ),
               const SizedBox(width: 5,),
-              Text("$amount PKR",style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18),),
+              Text(amount,style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18),),
             ],
           )
         ],
