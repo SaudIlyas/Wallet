@@ -22,28 +22,37 @@ class TransactionTile extends StatelessWidget {
             children: [
               Container(
                 decoration: BoxDecoration(
-                  color: Color.fromRGBO(07,202,222, 1),
+                  color: const Color.fromRGBO(227, 182, 188, 1),
                   borderRadius: BorderRadius.circular(50),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 4.0, bottom: 4.0, left: 8.0, right: 8.0),
-                  child: Text(category.toString(), style: const TextStyle(fontWeight: FontWeight.w500),),
+                  padding: const EdgeInsets.only(left: 8.0, right: 8.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.category_rounded),
+                      const SizedBox(width: 5,),
+                      SizedBox(height: 30,child: Center(child: Text(category.toString(), style: const TextStyle(fontWeight: FontWeight.w500),))),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 20,),
               Container(
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
+                  color: Color.fromRGBO(245, 220, 144, 1),
                   borderRadius: BorderRadius.circular(50),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 4.0, bottom: 4.0, left: 8.0, right: 8.0),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.monetization_on_outlined,),
-                      const SizedBox(width: 5,),
-                      Text(account, style: const TextStyle(fontWeight: FontWeight.w500),),
-                    ],
+                  padding: const EdgeInsets.only(left: 8.0, right: 8.0),
+                  child: SizedBox(
+                    height: 30,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.monetization_on_outlined,),
+                        const SizedBox(width: 5,),
+                        Text(account, style: const TextStyle(fontWeight: FontWeight.w500),),
+                      ],
+                    ),
                   )
                 ),
               ),
@@ -60,7 +69,7 @@ class TransactionTile extends StatelessWidget {
                 radius: 15,
                 child: Icon(expense == true ? Icons.upload_rounded: Icons.download_rounded),
               ),
-              const SizedBox(width: 5,),
+              const SizedBox(width: 10,),
               Text(amount,style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18),),
             ],
           )

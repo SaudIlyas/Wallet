@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:wallet/components/account_items.dart';
 import 'package:wallet/components/buttons.dart';
+import 'package:wallet/components/category_items.dart';
 import 'package:wallet/components/neu_box.dart';
 import 'package:wallet/database/expense_database.dart';
 import 'package:wallet/helper/helper_functions.dart';
 import 'package:wallet/models/expense.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 
 class AddTransaction extends StatefulWidget {
   const AddTransaction({super.key});
@@ -14,7 +18,6 @@ class AddTransaction extends StatefulWidget {
 }
 
 class _AddTransactionState extends State<AddTransaction> {
-
   Future<void> createNewExpense() async {
     if (_accountController.text.isEmpty ||
         _categoryController.text.isEmpty ||
@@ -30,7 +33,13 @@ class _AddTransactionState extends State<AddTransaction> {
     try {
       Expense newExpense = Expense(
         convertStringToDouble(disp),
-        DateTime.now(),
+        DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+          _selectedTime.hour,
+          _selectedTime.minute,
+        ),
         _accountController.text,
         _categoryController.text,
         _noteController.text,
@@ -51,6 +60,7 @@ class _AddTransactionState extends State<AddTransaction> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Expense added successfully')),
       );
+      Navigator.pop(context);
     } catch (e) {
       // Handle any errors
       ScaffoldMessenger.of(context).showSnackBar(
@@ -67,6 +77,8 @@ class _AddTransactionState extends State<AddTransaction> {
   String disp = '0';
   String result = "";
   bool exp = true;
+  DateTime _selectedDate = DateTime.now();
+  TimeOfDay _selectedTime = TimeOfDay.now();
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +92,32 @@ class _AddTransactionState extends State<AddTransaction> {
       setState(() {
         disp = result;
       });
+    }
+
+    Future<void> _selectDate(BuildContext context) async {
+      final DateTime? picked = await showDatePicker(
+        context: context,
+        initialDate: _selectedDate,
+        firstDate: DateTime(2000),
+        lastDate: DateTime(2101),
+      );
+      if (picked != null && picked != _selectedDate) {
+        setState(() {
+          _selectedDate = picked;
+        });
+      }
+    }
+
+    Future<void> _selectTime(BuildContext context) async {
+      final TimeOfDay? picked = await showTimePicker(
+        context: context,
+        initialTime: _selectedTime,
+      );
+      if (picked != null && picked != _selectedTime) {
+        setState(() {
+          _selectedTime = picked;
+        });
+      }
     }
 
     return GestureDetector(
@@ -110,10 +148,10 @@ class _AddTransactionState extends State<AddTransaction> {
                         ),
                       ),
                       MaterialButton(
-                        onPressed: () async{
+                        onPressed: () async {
                           await createNewExpense();
 
-                          Navigator.pop(context);
+                          // Navigator.pop(context);
                         },
                         child: const Row(
                           children: [
@@ -132,6 +170,15 @@ class _AddTransactionState extends State<AddTransaction> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       TextButton(
+                        style: TextButton.styleFrom(
+                            textStyle: !exp
+                                ? const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                    fontSize: 20,
+                                  )
+                                : const TextStyle(
+                                    fontWeight: FontWeight.normal)),
                         onPressed: () {
                           setState(() {
                             exp = false;
@@ -146,6 +193,15 @@ class _AddTransactionState extends State<AddTransaction> {
                         child: const Text(""),
                       ),
                       TextButton(
+                        style: TextButton.styleFrom(
+                            textStyle: exp
+                                ? const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                    fontSize: 20,
+                                  )
+                                : const TextStyle(
+                                    fontWeight: FontWeight.normal)),
                         onPressed: () {
                           setState(() {
                             exp = true;
@@ -155,74 +211,55 @@ class _AddTransactionState extends State<AddTransaction> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 5,),
+                  const SizedBox(
+                    height: 5,
+                  ),
                   // account and category selector
                   Row(
                     children: [
                       Expanded(
                           flex: 1,
                           child: NeuBox(
-                              child: DropdownButtonFormField<String>(
-                                dropdownColor:
-                                const Color.fromRGBO(215, 235, 250, 1),
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  icon: Icon(Icons.wallet_rounded),
-                                ),
-                                value: 'none',
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'none',
-                                    child: Text('Account'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'cash',
-                                    child: Text('Cash'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'card',
-                                    child: Text('Card'),
-                                  ),
-                                  // Add more country codes here
-                                ],
-                                // onChanged: (value) {},
-                                onChanged: (value) => _accountController.text = value!,
+                            child: DropdownButtonFormField<String>(
+                              dropdownColor:
+                              Theme.of(context).colorScheme.surface,
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                icon: Icon(Icons.wallet_rounded),
                               ),
+                              value: '',
+                              items: AccountDropdownItems.items,
+                              onChanged: (value) =>
+                                  _accountController.text = value!,
+                            ),
                           )),
-                      const SizedBox(width: 20,),
+                      const SizedBox(
+                        width: 20,
+                      ),
                       Expanded(
                           flex: 1,
                           child: NeuBox(
-                              child: DropdownButtonFormField<String>(
-                                dropdownColor:
-                                const Color.fromRGBO(215, 235, 250, 1),
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  icon: Icon(Icons.category_rounded),
-                                ),
-                                value: 'none',
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'none',
-                                    child: Text('Category'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'cash',
-                                    child: Text('Cash'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'card',
-                                    child: Text('Card'),
-                                  ),
-                                  // Add more country codes here
-                                ],
-                                // onChanged: (value) {},
-                                onChanged: (value) => _categoryController.text = value!,
+                            child: DropdownButtonFormField<String>(
+                              dropdownColor:
+                              Theme.of(context).colorScheme.surface,
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                icon: Icon(Icons.category_rounded),
                               ),
+                              value: '',
+                              items: CategoryDropdownItems.items,
+                              onChanged: (value) =>
+                                  _categoryController.text = value!,
+                              style: TextStyle(fontSize: MediaQuery.sizeOf(context).width*0.032, color: Colors.black),
+                            //   dropdownMenuTheme: DropdownMenuThemeData(
+                            //     textStyle: TextStyle(fontSize: 18, color: Colors.black),
+                            ),
                           ))
                     ],
                   ),
-                  const SizedBox(height: 17,),
+                  const SizedBox(
+                    height: 17,
+                  ),
                   // Add title Text box
                   SizedBox(
                     height: 45,
@@ -236,7 +273,9 @@ class _AddTransactionState extends State<AddTransaction> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 17,),
+                  const SizedBox(
+                    height: 17,
+                  ),
                   // Add note Text box
                   SizedBox(
                     height: 85, // Custom height
@@ -250,7 +289,9 @@ class _AddTransactionState extends State<AddTransaction> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 17,),
+                  const SizedBox(
+                    height: 17,
+                  ),
                   // Amount field
                   SizedBox(
                     width: double.infinity,
@@ -266,40 +307,60 @@ class _AddTransactionState extends State<AddTransaction> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 17,),
+                  const SizedBox(
+                    height: 17,
+                  ),
                   // Number Buttons
                   Column(
                     children: [
                       Row(
                         children: [
                           Expanded(child: Buttons(text: "7", fun: getBtn)),
-                          const SizedBox(width: 20,),
+                          const SizedBox(
+                            width: 20,
+                          ),
                           Expanded(child: Buttons(text: "8", fun: getBtn)),
-                          const SizedBox(width: 20,),
+                          const SizedBox(
+                            width: 20,
+                          ),
                           Expanded(child: Buttons(text: "9", fun: getBtn)),
                         ],
                       ),
-                      const SizedBox(height: 10,),
+                      const SizedBox(
+                        height: 10,
+                      ),
                       Row(
                         children: [
                           Expanded(child: Buttons(text: "4", fun: getBtn)),
-                          const SizedBox(width: 20,),
+                          const SizedBox(
+                            width: 20,
+                          ),
                           Expanded(child: Buttons(text: "5", fun: getBtn)),
-                          const SizedBox(width: 20,),
+                          const SizedBox(
+                            width: 20,
+                          ),
                           Expanded(child: Buttons(text: "6", fun: getBtn)),
                         ],
                       ),
-                      const SizedBox(height: 10,),
+                      const SizedBox(
+                        height: 10,
+                      ),
                       Row(
                         children: [
                           Expanded(child: Buttons(text: "1", fun: getBtn)),
-                          const SizedBox(width: 20,),
+                          const SizedBox(
+                            width: 20,
+                          ),
                           Expanded(child: Buttons(text: "2", fun: getBtn)),
-                          const SizedBox(width: 20,),
+                          const SizedBox(
+                            width: 20,
+                          ),
                           Expanded(child: Buttons(text: "3", fun: getBtn)),
                         ],
                       ),
-                      const SizedBox(height: 10,),
+                      const SizedBox(
+                        height: 10,
+                      ),
                       Row(
                         children: [
                           Expanded(child: Buttons(text: "0", fun: getBtn)),
@@ -321,13 +382,58 @@ class _AddTransactionState extends State<AddTransaction> {
                                             setState(() {
                                               disp = result;
                                             });
+                                            HapticFeedback.mediumImpact();
                                           },
                                           child: const Icon(
                                               Icons.backspace_rounded))))),
                         ],
                       ),
                     ],
-                  )
+                  ),
+                  const SizedBox(
+                    height: 17,
+                  ),
+                  // Date and Time Picker
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: (){
+                            _selectDate(context);
+                            HapticFeedback.mediumImpact();
+                          },
+                          child: NeuBox(
+                            child: Row(
+                                mainAxisSize: MainAxisSize.max,
+                                children: [
+                                  const Icon(Icons.calendar_today_rounded),
+                                  const SizedBox(width: 5,),
+                                  Text('Date: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}',),
+                                ],
+                              ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: (){
+                            _selectTime(context);
+                            HapticFeedback.mediumImpact();
+                          },
+                          child: NeuBox(
+                            child: Row(
+                              children: [
+                                const Icon(Icons.access_time_filled_rounded),
+                                const SizedBox(width: 5,),
+                                Text('Time: ${_selectedTime.format(context)}'),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),

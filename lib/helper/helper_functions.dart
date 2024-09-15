@@ -9,6 +9,6 @@ double convertStringToDouble(String string){
 }
 
 String formatAmount(double amount){
-  final format = NumberFormat.currency(locale: "en_PK", symbol: "PKR", decimalDigits: 2);
+  final format = NumberFormat.currency(locale: "en_PK", symbol: "PKR ", decimalDigits: 2);
   return format.format(amount);
 }

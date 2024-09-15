@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wallet/theme/theme_provider.dart';
-// import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
 
 class Buttons extends StatelessWidget {
   final String text;
@@ -19,7 +19,10 @@ class Buttons extends StatelessWidget {
     bool isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
 
     return GestureDetector(
-      onTap: ()=> fun(text),
+      onTap: (){
+        fun(text);
+        HapticFeedback.mediumImpact();
+      },
       child: Container(
         decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
