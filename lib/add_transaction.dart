@@ -9,6 +9,7 @@ import 'package:wallet/helper/helper_functions.dart';
 import 'package:wallet/models/expense.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:wallet/theme/theme_provider.dart';
 
 class AddTransaction extends StatefulWidget {
   const AddTransaction({super.key});
@@ -82,6 +83,9 @@ class _AddTransactionState extends State<AddTransaction> {
 
   @override
   Widget build(BuildContext context) {
+
+    bool isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+
     void getBtn(String btnVal) {
       if (btnVal == 'C') {
         disp = '';
@@ -94,7 +98,7 @@ class _AddTransactionState extends State<AddTransaction> {
       });
     }
 
-    Future<void> _selectDate(BuildContext context) async {
+    Future<void> selectDate(BuildContext context) async {
       final DateTime? picked = await showDatePicker(
         context: context,
         initialDate: _selectedDate,
@@ -108,7 +112,7 @@ class _AddTransactionState extends State<AddTransaction> {
       }
     }
 
-    Future<void> _selectTime(BuildContext context) async {
+    Future<void> selectTime(BuildContext context) async {
       final TimeOfDay? picked = await showTimePicker(
         context: context,
         initialTime: _selectedTime,
@@ -130,40 +134,43 @@ class _AddTransactionState extends State<AddTransaction> {
               child: Column(
                 children: [
                   // cancel and save buttons
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      MaterialButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        child: const Row(
-                          children: [
-                            Icon(Icons.close_rounded),
-                            SizedBox(
-                              width: 4,
-                            ),
-                            Text("CANCEL")
-                          ],
+                  SizedBox(
+                    height: 25,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        MaterialButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          child: const Row(
+                            children: [
+                              Icon(Icons.close_rounded),
+                              SizedBox(
+                                width: 4,
+                              ),
+                              Text("CANCEL")
+                            ],
+                          ),
                         ),
-                      ),
-                      MaterialButton(
-                        onPressed: () async {
-                          await createNewExpense();
+                        MaterialButton(
+                          onPressed: () async {
+                            await createNewExpense();
 
-                          // Navigator.pop(context);
-                        },
-                        child: const Row(
-                          children: [
-                            Icon(Icons.check_rounded),
-                            SizedBox(
-                              width: 4,
-                            ),
-                            Text("SAVE")
-                          ],
-                        ),
-                      )
-                    ],
+                            // Navigator.pop(context);
+                          },
+                          child: const Row(
+                            children: [
+                              Icon(Icons.check_rounded),
+                              SizedBox(
+                                width: 4,
+                              ),
+                              Text("SAVE")
+                            ],
+                          ),
+                        )
+                      ],
+                    ),
                   ),
                   // income expense and transfer selector
                   Row(
@@ -211,9 +218,6 @@ class _AddTransactionState extends State<AddTransaction> {
                       ),
                     ],
                   ),
-                  const SizedBox(
-                    height: 5,
-                  ),
                   // account and category selector
                   Row(
                     children: [
@@ -226,15 +230,19 @@ class _AddTransactionState extends State<AddTransaction> {
                               decoration: const InputDecoration(
                                 border: InputBorder.none,
                                 icon: Icon(Icons.wallet_rounded),
+                                isDense: true,
                               ),
                               value: '',
                               items: AccountDropdownItems.items,
                               onChanged: (value) =>
                                   _accountController.text = value!,
+                              style: TextStyle(fontSize: MediaQuery.sizeOf(context).width*0.032, color: isDarkMode ? Colors.white : Colors.black ),
+                              borderRadius: BorderRadius.circular(20),
+                              enableFeedback: true,
                             ),
                           )),
                       const SizedBox(
-                        width: 20,
+                        width: 15,
                       ),
                       Expanded(
                           flex: 1,
@@ -245,20 +253,21 @@ class _AddTransactionState extends State<AddTransaction> {
                               decoration: const InputDecoration(
                                 border: InputBorder.none,
                                 icon: Icon(Icons.category_rounded),
+                                isDense: true
                               ),
                               value: '',
                               items: CategoryDropdownItems.items,
                               onChanged: (value) =>
                                   _categoryController.text = value!,
-                              style: TextStyle(fontSize: MediaQuery.sizeOf(context).width*0.032, color: Colors.black),
-                            //   dropdownMenuTheme: DropdownMenuThemeData(
-                            //     textStyle: TextStyle(fontSize: 18, color: Colors.black),
+                              style: TextStyle(fontSize: MediaQuery.sizeOf(context).width*0.032, color: isDarkMode ? Colors.white : Colors.black),
+                              borderRadius: BorderRadius.circular(20),
+                              enableFeedback: true,
                             ),
                           ))
                     ],
                   ),
                   const SizedBox(
-                    height: 17,
+                    height: 15,
                   ),
                   // Add title Text box
                   SizedBox(
@@ -274,7 +283,7 @@ class _AddTransactionState extends State<AddTransaction> {
                     ),
                   ),
                   const SizedBox(
-                    height: 17,
+                    height: 15,
                   ),
                   // Add note Text box
                   SizedBox(
@@ -290,7 +299,7 @@ class _AddTransactionState extends State<AddTransaction> {
                     ),
                   ),
                   const SizedBox(
-                    height: 17,
+                    height: 15,
                   ),
                   // Amount field
                   SizedBox(
@@ -308,7 +317,7 @@ class _AddTransactionState extends State<AddTransaction> {
                     ),
                   ),
                   const SizedBox(
-                    height: 17,
+                    height: 15,
                   ),
                   // Number Buttons
                   Column(
@@ -327,7 +336,7 @@ class _AddTransactionState extends State<AddTransaction> {
                         ],
                       ),
                       const SizedBox(
-                        height: 10,
+                        height: 9,
                       ),
                       Row(
                         children: [
@@ -343,7 +352,7 @@ class _AddTransactionState extends State<AddTransaction> {
                         ],
                       ),
                       const SizedBox(
-                        height: 10,
+                        height: 9,
                       ),
                       Row(
                         children: [
@@ -359,7 +368,7 @@ class _AddTransactionState extends State<AddTransaction> {
                         ],
                       ),
                       const SizedBox(
-                        height: 10,
+                        height: 9,
                       ),
                       Row(
                         children: [
@@ -391,7 +400,7 @@ class _AddTransactionState extends State<AddTransaction> {
                     ],
                   ),
                   const SizedBox(
-                    height: 17,
+                    height: 15,
                   ),
                   // Date and Time Picker
                   Row(
@@ -399,7 +408,7 @@ class _AddTransactionState extends State<AddTransaction> {
                       Expanded(
                         child: GestureDetector(
                           onTap: (){
-                            _selectDate(context);
+                            selectDate(context);
                             HapticFeedback.mediumImpact();
                           },
                           child: NeuBox(
@@ -408,17 +417,17 @@ class _AddTransactionState extends State<AddTransaction> {
                                 children: [
                                   const Icon(Icons.calendar_today_rounded),
                                   const SizedBox(width: 5,),
-                                  Text('Date: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}',),
+                                  Text('Date: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}',style: TextStyle(fontSize: MediaQuery.sizeOf(context).width*0.035),),
                                 ],
                               ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 20),
+                      const SizedBox(width: 15),
                       Expanded(
                         child: GestureDetector(
                           onTap: (){
-                            _selectTime(context);
+                            selectTime(context);
                             HapticFeedback.mediumImpact();
                           },
                           child: NeuBox(
@@ -426,7 +435,7 @@ class _AddTransactionState extends State<AddTransaction> {
                               children: [
                                 const Icon(Icons.access_time_filled_rounded),
                                 const SizedBox(width: 5,),
-                                Text('Time: ${_selectedTime.format(context)}'),
+                                Text('Time: ${_selectedTime.format(context)}',style: TextStyle(fontSize: MediaQuery.sizeOf(context).width*0.035)),
                               ],
                             ),
                           ),

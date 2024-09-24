@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wallet/database/expense_database.dart';
-import 'package:wallet/home_page.dart';
+import 'package:wallet/first_setup.dart';
 import 'package:wallet/theme/theme_provider.dart';
+import 'package:wallet/welcome_screen.dart';
 
 
 
@@ -51,7 +52,7 @@ class MyApp extends StatelessWidget {
       //   colorScheme: ColorScheme.fromSeed(seedColor: Colors.white),
       //   useMaterial3: true,
       // ),
-      home: const HomePage(),
+      home: const WelcomeScreen(),
       theme: Provider.of<ThemeProvider>(context).themeData ,
     );
   }

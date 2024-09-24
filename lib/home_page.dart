@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:wallet/add_transaction.dart';
 import 'package:wallet/components/date_range_picker.dart';
 import 'package:wallet/components/drawer.dart';
@@ -19,7 +18,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  DateTime? _selectedMonth;
   DateTime? _startDate;
   DateTime? _endDate;
 
@@ -46,6 +44,8 @@ class _HomePageState extends State<HomePage> {
         .where((expense) => expense.expense) // Assuming `expense` is `true` for expenses and `false` for income
         .fold(0.0, (sum, item) => sum + item.amount);
   }
+
+
 
   void openDeleteBox(Expense expense){
     showDialog(context: context, builder: (context)=> AlertDialog(
@@ -77,6 +77,113 @@ class _HomePageState extends State<HomePage> {
       child: const Text("CANCEL"),
     );
   }
+
+  DateTime selectedDateTime = DateTime.now();
+
+  void openEditBox(BuildContext context, Expense expense) {
+    DateTime dateTime = expense.dateTime;
+    String formattedDate = "${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+
+    TextEditingController titleController = TextEditingController(text: expense.title);
+    TextEditingController noteController = TextEditingController(text: expense.note);
+    TextEditingController amountController = TextEditingController(text: expense.amount.toString());
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Edit Expense"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Text("Type: "),
+                  Text(expense.expense ? "Expense" : "Income"),
+                ],
+              ),
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: "Title"),
+              ),
+              TextField(
+                controller: noteController,
+                decoration: const InputDecoration(labelText: "Note"),
+              ),
+              TextField(
+                controller: amountController,
+                decoration: const InputDecoration(labelText: "Amount"),
+                keyboardType: TextInputType.number,
+              ),
+              GestureDetector(
+                onTap: () async {
+                  DateTime? pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: dateTime,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2101),
+                  );
+                  if (pickedDate != null) {
+                    TimeOfDay? pickedTime = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay.fromDateTime(dateTime),
+                    );
+                    if (pickedTime != null) {
+                      dateTime = DateTime(
+                        pickedDate.year,
+                        pickedDate.month,
+                        pickedDate.day,
+                        pickedTime.hour,
+                        pickedTime.minute,
+                      );
+                      formattedDate = "${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+                    }
+                  }
+                },
+                child: Row(
+                  children: [
+                    Text("Time: $formattedDate"),
+                  ],
+                ),
+              ),
+              Row(
+                children: [
+                  const Text("Account: "),
+                  Text(expense.account),
+                ],
+              ),
+              Row(
+                children: [
+                  const Text("Category: "),
+                  Text(expense.category),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          _cancelButton(),
+          MaterialButton(
+            onPressed: () async {
+              Expense updatedExpense = Expense(
+                convertStringToDouble(amountController.text),
+                dateTime, expense.account,
+                expense.category,
+                noteController.text,
+                expense.expense,
+                title: titleController.text,
+              );
+              int existingid = expense.id;
+              await context.read<ExpenseDatabase>().updateExpense(existingid, updatedExpense);
+
+              Navigator.pop(context);
+            },
+            child: const Text("SAVE"),
+          ),
+        ],
+      ),
+    );
+}
 
   void _showDateRangePicker() {
     showModalBottomSheet(
@@ -113,7 +220,6 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Consumer<ExpenseDatabase>(builder: (context, value, child) {
       final reversedExpenses = _filterExpensesByDateRange(value.allExpense.reversed.toList());
-      // final reversedExpenses = value.allExpense.reversed.toList();
       final totalIncome = getTotalIncome(reversedExpenses);
       final totalExpenses = getTotalExpenses(reversedExpenses);
       final cashflow = totalIncome - totalExpenses;
@@ -235,6 +341,10 @@ class _HomePageState extends State<HomePage> {
                           return Padding(
                             padding: const EdgeInsets.only(top: 16.0,),
                             child: GestureDetector(
+                              onTap: (){
+                                HapticFeedback.mediumImpact();
+                                openEditBox(context ,individualExpense);
+                              },
                               onLongPress: (){
                                 openDeleteBox(individualExpense);
                                 HapticFeedback.mediumImpact();
