@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wallet/database/expense_database.dart';
 import 'package:wallet/first_setup.dart';
+import 'package:wallet/home_page.dart';
 import 'package:wallet/theme/theme_provider.dart';
 import 'package:wallet/welcome_screen.dart';
 
@@ -24,8 +26,31 @@ import 'package:wallet/welcome_screen.dart';
       );
   }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+
+
+  bool firstTime = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Call your function here
+    loadPreferences();
+  }
+
+  Future<void> loadPreferences() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      firstTime = prefs.getBool('firstTime') ?? true;
+    });
+  }
 
   // This widget is the root of your application.
   @override
@@ -53,6 +78,7 @@ class MyApp extends StatelessWidget {
       //   useMaterial3: true,
       // ),
       home: const WelcomeScreen(),
+      // home: firstTime ? const WelcomeScreen() : const HomePage(),
       theme: Provider.of<ThemeProvider>(context).themeData ,
     );
   }

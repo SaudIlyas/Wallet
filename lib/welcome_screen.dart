@@ -17,22 +17,23 @@ class WelcomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
 
             children: [
-              SizedBox(
+              const SizedBox(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 5,),
-                    Container(
-                      width: MediaQuery.sizeOf(context).height*0.1,
-                      height: MediaQuery.sizeOf(context).height*0.08,
-                      decoration: const BoxDecoration(
-                          image: DecorationImage(image: AssetImage("assets/Images/wallet-removebg-preview.png"), fit: BoxFit.cover)
-                      ),
-                    ),
-                    const SizedBox(height: 10,),
-                    const Text("Wallet", style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),softWrap: true, textAlign: TextAlign.center,),
-                    const SizedBox(height: 10,),
-                    const Text("Your comprehensive expense tracker and money manager", style: TextStyle(fontSize: 15, fontFamily: "Montserrat"),),
+                    SizedBox(height: 5,),
+                    // Container(
+                    //   width: MediaQuery.sizeOf(context).height*0.1,
+                    //   height: MediaQuery.sizeOf(context).height*0.08,
+                    //   decoration: const BoxDecoration(
+                    //       image: DecorationImage(image: AssetImage("assets/Images/wallet-removebg-preview.png"), fit: BoxFit.cover)
+                    //   ),
+                    // ),
+                    Icon(Icons.wallet, size: 90,),
+                    SizedBox(height: 10,),
+                    Text("Wallet", style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),softWrap: true, textAlign: TextAlign.center,),
+                    SizedBox(height: 10,),
+                    Text("Your comprehensive expense tracker and money manager", style: TextStyle(fontSize: 15, fontFamily: "Montserrat"),),
                   ],
                 ),
               ),

@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:wallet/components/settings_page.dart';
+import 'package:wallet/database/expense_database.dart';
+import 'package:provider/provider.dart';
 import 'package:wallet/home_page.dart';
 
-class MyDrawer extends StatelessWidget {
+class MyDrawer extends StatefulWidget {
   const MyDrawer({super.key});
 
+  @override
+  State<MyDrawer> createState() => _MyDrawerState();
+}
+
+class _MyDrawerState extends State<MyDrawer> {
   @override
   Widget build(BuildContext context) {
     return Drawer(
@@ -27,7 +34,7 @@ class MyDrawer extends StatelessWidget {
               leading: const Icon(Icons.home_rounded),
               onTap: (){
                 Navigator.pop(context);
-
+                Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomePage()));
               },
             ),
           ),
@@ -38,11 +45,12 @@ class MyDrawer extends StatelessWidget {
               leading: const Icon(Icons.settings),
               onTap: (){
                 Navigator.pop(context);
-                
+
                 Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsPage()));
               },
             ),
-          )
+          ),
+
         ],
       ),
     );

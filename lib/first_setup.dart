@@ -3,7 +3,9 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:wallet/components/neu_box.dart';
+import 'package:wallet/database/expense_database.dart';
 import 'package:wallet/home_page.dart';
+import 'package:provider/provider.dart';
 
 class FirstSetup extends StatelessWidget {
   FirstSetup({super.key}){
@@ -30,7 +32,9 @@ class FirstSetup extends StatelessWidget {
           builder: (_) => SmoothPageIndicator(
             controller: _pageController,
             count: 3,
-            effect: const ExpandingDotsEffect(),
+            effect: const ExpandingDotsEffect(
+              activeDotColor: Color.fromRGBO(49, 81, 106, 1),
+            ),
           ),
         ),
         centerTitle: true,
@@ -43,8 +47,8 @@ class FirstSetup extends StatelessWidget {
           _buildImportBackupStep(context),
           // Step 2: Set Currency
           _buildSetCurrencyStep(context),
-          // Step 3: Enter Authentication Code
-          _buildEnterAuthCodeStep(context),
+          // Step 3: Set Categories
+          _buildSetCategoryStep(context),
         ],
       ),
       resizeToAvoidBottomInset: false,
@@ -87,20 +91,37 @@ class FirstSetup extends StatelessWidget {
             ),
           ])),
           SizedBox(height: MediaQuery.of(context).size.height * 0.04),
-          const SizedBox(
-            height: 60,
-            child: NeuBox(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Icon(Icons.backup_table_rounded),
-                  Text(
-                    "Import Backup",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 17),
-                  ),
-                  SizedBox(width: 1),
-                ],
+          GestureDetector(
+            onTap: ()async{
+              try{
+              await context.read<ExpenseDatabase>().restoreBackup();
+              // Show success message
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Backup restored successfully')),
+              );
+              Navigator.pop(context);
+              } catch (e) {
+                // Handle any errors
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: ${e.toString()}')),
+                );
+              }
+            },
+            child: const SizedBox(
+              height: 60,
+              child: NeuBox(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Icon(Icons.backup_table_rounded),
+                    Text(
+                      "Import Backup",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 17),
+                    ),
+                    SizedBox(width: 1),
+                  ],
+                ),
               ),
             ),
           ),
@@ -176,17 +197,36 @@ class FirstSetup extends StatelessWidget {
               itemCount: 15,
               itemBuilder: (context, index) => Padding(
                 padding: const EdgeInsets.only(bottom: 4.0),
-                child: Card(
-                  elevation: 2,
-                  child: ListTile(
-                    tileColor: Colors.grey.shade200,
-                    title: const Text(
-                      "PKR",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                child: GestureDetector(
+                  onTap: () {
+                    // Handle category selection
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.3),
+                          spreadRadius: 2,
+                          blurRadius: 5,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
-                    trailing: const Text(
-                      "Pakistani Rupee",
-                      style: TextStyle(fontSize: 18),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "PKR",
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        Text(
+                          "Pakistani Rupee",
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -225,85 +265,100 @@ class FirstSetup extends StatelessWidget {
 
   //============================Step 3======================================//
 
-  Widget _buildEnterAuthCodeStep(BuildContext context) {
+  Widget _buildSetCategoryStep(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Enter authentication code',
+            'Set Categories',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 24),
           const Text(
-            'Enter the 4-digit code that we have sent to your phone number,',
+            'Select the categories that you want:',
             style: TextStyle(fontSize: 16, fontFamily: 'Montserrat'),
           ),
           const SizedBox(height: 16),
+
+          // Suggestions header
           const Text(
-            "Code",
-            style: TextStyle(fontWeight: FontWeight.bold),
+            "Suggestions",
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 5),
-          TextField(
-            style: const TextStyle(
-                fontFamily: 'Montserrat', color: Colors.black54),
-            decoration: InputDecoration(
-              focusColor: Colors.blueAccent,
-              enabledBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Colors.black26),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Colors.blueAccent),
-                borderRadius: BorderRadius.circular(10),
-              ),
+
+          // Categories List
+          Expanded(
+            child: ListView(
+              children: [
+                _buildCategoryItem('Sports'),
+                _buildCategoryItem('Music'),
+                _buildCategoryItem('Technology'),
+                _buildCategoryItem('Travel'),
+                _buildCategoryItem('Health'),
+                // Add more categories as needed
+              ],
             ),
           ),
-          const Spacer(),
+
+          // Spacer between list and button
+          const SizedBox(height: 16),
+
+          // Finish button
           SizedBox(
             width: MediaQuery.of(context).size.width,
             height: MediaQuery.of(context).size.width * 0.15,
-            child: ElevatedButton(
-              style: const ButtonStyle(
-                backgroundColor: WidgetStatePropertyAll(
-                    Color.fromRGBO(15, 75, 167, 1)),
-              ),
-              onPressed: () {
-                Navigator.push(
+            child: NeuBox(
+              child: MaterialButton(
+                onPressed: () async{
+                  final SharedPreferences prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('firstTime', false);
+                  Navigator.push(
                     context,
-                    MaterialPageRoute(
-                        builder: (context) => const HomePage()));
-              },
-              child: const Text(
-                "Submit",
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: MediaQuery.of(context).size.width,
-            height: MediaQuery.of(context).size.width * 0.15,
-            child: ElevatedButton(
-              style: ButtonStyle(
-                backgroundColor: WidgetStatePropertyAll(Colors.grey.shade300),
-              ),
-              onPressed: () {},
-              child: const Text(
-                "Resend Code",
-                style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500),
+                    MaterialPageRoute(builder: (context) => const HomePage()),
+                  );
+                },
+                child: const Text(
+                  "Finish",
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+                ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+// Helper method to build individual category items
+  Widget _buildCategoryItem(String category) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: GestureDetector(
+        onTap: () {
+          // Handle category selection
+        },
+        child: Container(
+          padding: const EdgeInsets.all(16.0),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8.0),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.3),
+                spreadRadius: 2,
+                blurRadius: 5,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Text(
+            category,
+            style: const TextStyle(fontSize: 16),
+          ),
+        ),
       ),
     );
   }
