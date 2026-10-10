@@ -47,11 +47,13 @@ class SettingsPage extends StatelessWidget {
           GestureDetector(
             onTap: ()async{
               try{
-                await context.read<ExpenseDatabase>().createBackUp();
+                final saved = await context.read<ExpenseDatabase>().createBackUp();
+                if (!context.mounted || !saved) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Backup created successfully')),
                 );
               }catch(e){
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Error: ${e.toString()}')),
                 );
@@ -76,11 +78,13 @@ class SettingsPage extends StatelessWidget {
           GestureDetector(
             onTap: ()async{
               try{
-                await context.read<ExpenseDatabase>().restoreBackup();
+                final restored = await context.read<ExpenseDatabase>().restoreBackup();
+                if (!context.mounted || !restored) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Backup restored successfully')),
                 );
               }catch(e){
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Error: ${e.toString()}')),
                 );

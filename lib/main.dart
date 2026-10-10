@@ -6,6 +6,7 @@ import 'package:wallet/first_setup.dart';
 import 'package:wallet/home_page.dart';
 import 'package:wallet/theme/theme_provider.dart';
 import 'package:wallet/welcome_screen.dart';
+import 'package:wallet/models/wallet_preferences.dart';
 
 
 
@@ -13,6 +14,7 @@ import 'package:wallet/welcome_screen.dart';
     WidgetsFlutterBinding.ensureInitialized();
 
     await ExpenseDatabase.initialize();
+    await WalletPreferences.load();
 
       runApp(
         // ChangeNotifierProvider(create: (context) => ThemeProvider(), child: const MyApp(),)
@@ -77,8 +79,8 @@ class _MyAppState extends State<MyApp> {
       //   colorScheme: ColorScheme.fromSeed(seedColor: Colors.white),
       //   useMaterial3: true,
       // ),
-      home: const WelcomeScreen(),
-      // home: firstTime ? const WelcomeScreen() : const HomePage(),
+      // home: const WelcomeScreen(),
+      home: firstTime ? const WelcomeScreen() : const HomePage(),
       theme: Provider.of<ThemeProvider>(context).themeData ,
     );
   }

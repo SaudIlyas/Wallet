@@ -2,19 +2,17 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:wallet/models/expense.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
-import 'package:permission_handler/permission_handler.dart';
 
-
-class ExpenseDatabase extends ChangeNotifier{
-
+class ExpenseDatabase extends ChangeNotifier {
   static late Isar isar;
 
+  bool _backupInProgress = false;
 
-  List<Expense> _allExpenses = [];
+  final List<Expense> _allExpenses = [];
 
   // initialize db
 
@@ -43,7 +41,6 @@ class ExpenseDatabase extends ChangeNotifier{
     //update list
     _allExpenses.clear();
     _allExpenses.addAll(fetchedExpenses);
-    print('Expenses fetched: $fetchedExpenses');
     //update UI
     notifyListeners();
   }
@@ -66,100 +63,149 @@ class ExpenseDatabase extends ChangeNotifier{
     await readExpenses();
   }
 
-  //Backup - create a backup of the database
+  // Returns false when the user cancels. Errors are passed to the caller.
+  Future<bool> createBackUp() async {
+    _beginBackupOperation();
+    Directory? temporaryDirectory;
+    try {
+      final temporaryRoot = await getTemporaryDirectory();
+      temporaryDirectory = await temporaryRoot.createTemp('wallet_backup_');
+      final snapshot = File(p.join(temporaryDirectory.path, 'backup.isar'));
+      await isar.copyToFile(snapshot.path);
+      final bytes = await snapshot.readAsBytes();
+      final destination = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save Wallet backup',
+        fileName: 'wallet_backup_${DateTime.now().millisecondsSinceEpoch}.isar',
+        type: FileType.any,
+        bytes: bytes,
+      );
+      if (destination == null) return false;
 
-  Future<void> createBackUp() async {
-    final status = await Permission.storage.request();
-
-
-    if(status.isGranted){
-      final backupDirectory = await getBackupDirectory();
-
-      if (backupDirectory == null) {
-        // Handle the case when the user cancels the directory selection.
-        return;
+      // Mobile pickers write the supplied bytes through the document provider.
+      // Desktop pickers only return the selected filesystem path.
+      if (!Platform.isAndroid && !Platform.isIOS) {
+        await File(destination).writeAsBytes(bytes, flush: true);
       }
-
-      // final File backUpFile = File('${backUpDir.path}/backup_db.isar');
-      final File backUpFile = File('${backupDirectory.path}/backup_db.isar');
-      if (await backUpFile.exists()) {
-        // if already we have another backup file, delete it here.
-        await backUpFile.delete();
-      }
-
-      try {
-        await isar.copyToFile('${backupDirectory.path}/backup_db.isar');
-      } catch (e) {
-        print("TRYING TO CREATE BACKUP: $e");
-        print("Isar Directory: ${isar.isOpen}");
-      }
-    }else{
-      print("Permission not granted");
-      await Permission.manageExternalStorage.request();
-      await Permission.storage.request();
+      return true;
+    } finally {
+      await _cleanTemporaryDirectory(temporaryDirectory);
+      _backupInProgress = false;
     }
   }
 
-  //Restore - restore a backup
+  Future<bool> restoreBackup() async {
+    _beginBackupOperation();
+    Directory? temporaryDirectory;
+    Isar? backupDatabase;
+    try {
+      final backupFile = await getBackupFile();
+      if (backupFile == null) return false;
+      await _validateBackupHeader(backupFile);
 
-  Future<void> restoreBackup() async {
-    final dbDirectory = await getApplicationDocumentsDirectory();
-    final dbPath = p.join(dbDirectory.path, 'default.isar');
+      final temporaryRoot = await getTemporaryDirectory();
+      temporaryDirectory = await temporaryRoot.createTemp('wallet_restore_');
+      final validationName =
+          'wallet_restore_${DateTime.now().microsecondsSinceEpoch}';
+      await backupFile.copy(
+        p.join(temporaryDirectory.path, '$validationName.isar'),
+      );
 
-    final backupFile = await getBackupFile();
+      // Open and validate a disposable copy, never the user's original backup.
+      backupDatabase = await Isar.open(
+        [ExpenseSchema],
+        directory: temporaryDirectory.path,
+        name: validationName,
+        inspector: false,
+      );
+      final restoredExpenses = await backupDatabase.expenses.where().findAll();
+      await backupDatabase.close();
+      backupDatabase = null;
 
-    if (backupFile == null) {
-      // Handle the case when the user cancels the file selection
-      print('Backup file selection cancelled');
-      return;
-    }
-
-    if (await backupFile.exists()) {
-      // Close the database before making changes
-      await isar.close();
-
+      // Wallet stores its database content in the Expense collection. Replace
+      // it atomically: Isar rolls back both operations if either one fails.
+      // The live database remains open throughout, and expense IDs are retained.
+      await isar.writeTxn(() async {
+        await isar.expenses.clear();
+        await isar.expenses.putAll(restoredExpenses);
+      });
+      await readExpenses();
+      return true;
+    } finally {
       try {
-        // Overwrite the current database file with the backup file
-        await backupFile.copy(dbPath);
-        print('Backup restored successfully');
-      } catch (e) {
-        print('Error restoring backup: $e');
+        if (backupDatabase != null && backupDatabase.isOpen) {
+          await backupDatabase.close();
+        }
       } finally {
-        // Reopen the database
-        isar = await Isar.open([ExpenseSchema], directory: dbDirectory.path);
+        await _cleanTemporaryDirectory(temporaryDirectory);
+        _backupInProgress = false;
       }
-    } else {
-      print('Selected backup file does not exist');
     }
   }
 
-  Future<Directory?> getBackupDirectory() async {
-    final result = await FilePicker.platform.getDirectoryPath();
-
-    if (result == null) {
-      // User canceled the directory selection.
-      return null;
+  void _beginBackupOperation() {
+    if (_backupInProgress) {
+      throw StateError('A backup or restore is already in progress.');
     }
+    _backupInProgress = true;
+  }
 
-    return Directory(result);
+  Future<void> _validateBackupHeader(File file) async {
+    // MDBX can initialize short/non-database files as empty databases. Reject
+    // them before opening. Its 56-bit magic is stable across Isar 3 versions;
+    // Isar itself checks the separate format-version byte and database pages.
+    if (!await file.exists() || await file.length() < 1536) {
+      throw const FormatException(
+        'The selected file is not a valid Isar backup.',
+      );
+    }
+    final handle = await file.open();
+    try {
+      final header = await handle.read(64);
+      const signature = [0x11, 0x4c, 0xef, 0xbd, 0x9d, 0x65, 0x59];
+      for (
+        var offset = 0;
+        offset <= header.length - signature.length;
+        offset++
+      ) {
+        var matches = true;
+        for (var i = 0; i < signature.length; i++) {
+          if (header[offset + i] != signature[i]) matches = false;
+        }
+        if (matches) return;
+      }
+      throw const FormatException(
+        'The selected file is not a valid Isar backup.',
+      );
+    } finally {
+      await handle.close();
+    }
+  }
+
+  Future<void> _cleanTemporaryDirectory(Directory? directory) async {
+    if (directory == null) return;
+    try {
+      if (await directory.exists()) await directory.delete(recursive: true);
+    } on FileSystemException catch (error) {
+      // A cleanup failure must not turn a completed backup into a false failure.
+      debugPrint('Could not remove temporary backup files: $error');
+    }
   }
 
   Future<File?> getBackupFile() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        allowMultiple: false,
-      );
-
-      if (result == null || result.files.isEmpty) {
-        print('No file selected');
-        return null;
-      }
-
-      return File(result.files.single.path!);
-    } catch (e) {
-      print('Error selecting file: $e');
-      return null;
+    final result = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Select a Wallet backup (.isar)',
+      allowMultiple: false,
+      type: FileType.any,
+    );
+    if (result == null || result.files.isEmpty) return null;
+    final selected = result.files.single;
+    if (p.extension(selected.name).toLowerCase() != '.isar') {
+      throw const FormatException('Please select a Wallet .isar backup file.');
     }
+    final path = selected.path;
+    if (path == null || path.isEmpty) {
+      throw const FileSystemException('The selected backup cannot be opened.');
+    }
+    return File(path);
   }
-
 }

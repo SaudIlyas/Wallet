@@ -31,6 +31,35 @@ migrate_working_dir/
 .pub/
 /build/
 
+# Platform build output, native build caches, and coverage reports
+/android/build/
+**/.gradle/
+**/.cxx/
+**/.externalNativeBuild/
+/coverage/
+*.apk
+*.aab
+*.ipa
+
+# Machine-specific Android SDK paths and private signing credentials
+**/local.properties
+**/key.properties
+*.jks
+*.keystore
+*.p12
+*.pfx
+
+# Local environment values; keep sanitized templates shareable
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Local Wallet databases, lock files, and exported backups
+*.isar
+*.isar.lock
+
 # Symbolication related
 app.*.symbols
 

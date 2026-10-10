@@ -10,6 +10,7 @@ import 'package:wallet/models/expense.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:wallet/theme/theme_provider.dart';
+import 'package:wallet/models/wallet_preferences.dart';
 
 class AddTransaction extends StatefulWidget {
   const AddTransaction({super.key});
@@ -257,6 +258,7 @@ class _AddTransactionState extends State<AddTransaction> {
                               ),
                               value: '',
                               items: CategoryDropdownItems.items,
+                              isExpanded: true,
                               onChanged: (value) =>
                                   _categoryController.text = value!,
                               style: TextStyle(fontSize: MediaQuery.sizeOf(context).width*0.032, color: isDarkMode ? Colors.white : Colors.black),
@@ -309,7 +311,7 @@ class _AddTransactionState extends State<AddTransaction> {
                         alignment: const Alignment(1, 0),
                         child: Text(
                           maxLines: 1,
-                          disp,
+                          '${WalletPreferences.currency.code} $disp',
                           style: const TextStyle(
                               fontSize: 48, color: Color(0xffacacac)),
                         ),

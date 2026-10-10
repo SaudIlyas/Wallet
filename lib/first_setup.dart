@@ -1,165 +1,238 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:wallet/components/neu_box.dart';
 import 'package:wallet/database/expense_database.dart';
 import 'package:wallet/home_page.dart';
-import 'package:provider/provider.dart';
+import 'package:wallet/models/wallet_preferences.dart';
 
-class FirstSetup extends StatelessWidget {
-  FirstSetup({super.key}){
-    // Initialize the controller when the widget is created
-    Get.put(RegistrationController());
+class FirstSetup extends StatefulWidget {
+  const FirstSetup({super.key});
+
+  @override
+  State<FirstSetup> createState() => _FirstSetupState();
+}
+
+class _FirstSetupState extends State<FirstSetup> {
+  final _pageController = PageController();
+  final _searchController = TextEditingController();
+  final _categoryController = TextEditingController();
+  late WalletCurrency _currency;
+  late List<String> _categories;
+  late Set<String> _selectedCategories;
+  String? _categoryError;
+  bool _saving = false;
+  bool _restoring = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currency = WalletPreferences.currency;
+    _categories = {
+      ...WalletPreferences.suggestedCategories,
+      ...WalletPreferences.categories,
+    }.toList();
+    _selectedCategories = WalletPreferences.categories.toSet();
   }
 
-  final PageController _pageController = PageController();
-  final TextEditingController _searchController = TextEditingController();
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _searchController.dispose();
+    _categoryController.dispose();
+    super.dispose();
+  }
+
+  void _nextPage() {
+    FocusScope.of(context).unfocus();
+    _pageController.nextPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.ease,
+    );
+  }
+
+  void _addCategory() {
+    final name = _categoryController.text.trim().replaceAll(
+      RegExp(r'\s+'),
+      ' ',
+    );
+    if (name.isEmpty) {
+      setState(() => _categoryError = 'Enter a category name.');
+      return;
+    }
+    if (_categories.any((item) => item.toLowerCase() == name.toLowerCase())) {
+      setState(
+        () => _categoryError = 'This category already exists in the list.',
+      );
+      return;
+    }
+    setState(() {
+      _categories.insert(0, name);
+      _selectedCategories.add(name);
+      _categoryError = null;
+      _categoryController.clear();
+    });
+    FocusScope.of(context).unfocus();
+  }
+
+  Future<void> _restoreBackup() async {
+    if (_restoring) return;
+    setState(() => _restoring = true);
+    try {
+      final restored = await context.read<ExpenseDatabase>().restoreBackup();
+      if (!mounted || !restored) return;
+      // Retain categories used by the imported expenses as setup options.
+      final imported = context
+          .read<ExpenseDatabase>()
+          .allExpense
+          .map((expense) => expense.category.trim())
+          .where((category) => category.isNotEmpty);
+      setState(() {
+        for (final category in imported) {
+          final existing = _categories.where(
+            (item) => item.toLowerCase() == category.toLowerCase(),
+          );
+          if (existing.isEmpty) {
+            _categories.add(category);
+            _selectedCategories.add(category);
+          } else {
+            _selectedCategories.add(existing.first);
+          }
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Backup restored successfully')),
+      );
+      _nextPage();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not restore backup: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _restoring = false);
+    }
+  }
+
+  Future<void> _finish() async {
+    if (_saving) return;
+    if (_categoryController.text.trim().isNotEmpty) {
+      setState(
+        () => _categoryError =
+            'Tap Add Category or clear this field before finishing.',
+      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_categoryError!)));
+      return;
+    }
+    if (_selectedCategories.isEmpty) {
+      setState(() => _categoryError = 'Select or add at least one category.');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_categoryError!)));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await WalletPreferences.saveSetup(
+        _currency,
+        _categories.where(_selectedCategories.contains).toList(),
+      );
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomePage()),
+        (_) => false,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not finish setup: $error')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<RegistrationController>();
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
+          onPressed: _saving || _restoring
+              ? null
+              : () => Navigator.of(context).pop(),
         ),
-        title: GetBuilder<RegistrationController>(
-          builder: (_) => SmoothPageIndicator(
-            controller: _pageController,
-            count: 3,
-            effect: const ExpandingDotsEffect(
-              activeDotColor: Color.fromRGBO(49, 81, 106, 1),
-            ),
+        title: SmoothPageIndicator(
+          controller: _pageController,
+          count: 3,
+          effect: ExpandingDotsEffect(
+            activeDotColor: Theme.of(context).colorScheme.primary,
           ),
         ),
         centerTitle: true,
       ),
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: controller.setCurrentStep,
-        children: [
-          // Step 1: Import Backup
-          _buildImportBackupStep(context),
-          // Step 2: Set Currency
-          _buildSetCurrencyStep(context),
-          // Step 3: Set Categories
-          _buildSetCategoryStep(context),
-        ],
-      ),
-      resizeToAvoidBottomInset: false,
-    );
-  }
-
-  //============================Step 1======================================//
-
-  Widget _buildImportBackupStep(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Import backup file',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+      body: SafeArea(
+        child: AbsorbPointer(
+          absorbing: _saving || _restoring,
+          child: PageView(
+            controller: _pageController,
+            onPageChanged: (_) => FocusScope.of(context).unfocus(),
+            children: [
+              _buildImportStep(),
+              _buildCurrencyStep(),
+              _buildCategoryStep(),
+            ],
           ),
-          const SizedBox(height: 40),
-          Center(
-            child: Container(
-              width: MediaQuery.of(context).size.height * 0.25,
-              height: MediaQuery.of(context).size.height * 0.25,
-              decoration: const BoxDecoration(
-                image: DecorationImage(
-                    image: AssetImage("assets/Images/backup_outlined.png"),
-                    fit: BoxFit.cover),
-              ),
-            ),
-          ),
-          const SizedBox(height: 40),
-          const Text.rich(TextSpan(children: [
-            TextSpan(
-              text: "You can always import your data later if you wish",
-              style: TextStyle(
-                fontFamily: 'Montserrat',
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ])),
-          SizedBox(height: MediaQuery.of(context).size.height * 0.04),
-          GestureDetector(
-            onTap: ()async{
-              try{
-              await context.read<ExpenseDatabase>().restoreBackup();
-              // Show success message
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Backup restored successfully')),
-              );
-              Navigator.pop(context);
-              } catch (e) {
-                // Handle any errors
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: ${e.toString()}')),
-                );
-              }
-            },
-            child: const SizedBox(
-              height: 60,
-              child: NeuBox(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Icon(Icons.backup_table_rounded),
-                    Text(
-                      "Import Backup",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 17),
-                    ),
-                    SizedBox(width: 1),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const Spacer(),
-          GestureDetector(
-            onTap: () async {
-              _pageController.nextPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.ease);
-            },
-            child: const SizedBox(
-              height: 60,
-              child: NeuBox(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    SizedBox(width: 1),
-                    Text(
-                      "Start Fresh",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 17),
-                    ),
-                    Icon(Icons.arrow_forward_ios_rounded),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  //============================Step 2======================================//
+  Widget _button(String label, VoidCallback? onPressed) {
+    return SizedBox(
+      width: double.infinity,
+      child: NeuBox(
+        child: TextButton(
+          onPressed: onPressed,
+          child: Text(label, style: const TextStyle(fontSize: 17)),
+        ),
+      ),
+    );
+  }
 
-  Widget _buildSetCurrencyStep(BuildContext context) {
+  Widget _buildImportStep() {
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        const Text(
+          'Import backup file',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 32),
+        Image.asset('assets/Images/backup_outlined.png', height: 170),
+        const SizedBox(height: 24),
+        const Text('You can always import your data later from Settings.'),
+        const SizedBox(height: 32),
+        _button(_restoring ? 'Restoring...' : 'Import Backup', _restoreBackup),
+        const SizedBox(height: 24),
+        _button('Continue without importing', _nextPage),
+      ],
+    );
+  }
+
+  Widget _buildCurrencyStep() {
+    final query = _searchController.text.trim().toLowerCase();
+    final filtered = WalletPreferences.currencies
+        .where(
+          (currency) =>
+              currency.code.toLowerCase().contains(query) ||
+              currency.name.toLowerCase().contains(query),
+        )
+        .toList();
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -167,212 +240,113 @@ class FirstSetup extends StatelessWidget {
             'Set Currency',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 24),
-          const NeuBox(
-            child: ListTile(
-              title: Text("Pakistani Rupee"),
-              subtitle: Text("PKR"),
-              trailing: Text("Selected"),
-            ),
-          ),
-          const SizedBox(height: 20),
-          TextFormField(
+          const SizedBox(height: 12),
+          Text('Selected: ${_currency.code} - ${_currency.name}'),
+          const SizedBox(height: 12),
+          TextField(
             controller: _searchController,
-            decoration: InputDecoration(
-              focusColor: const Color.fromRGBO(0, 3, 252, 1),
-              enabledBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Colors.black26),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Colors.black26),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              hintText: "Search (USD, PKR, CAD, etc.)",
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search),
+              hintText: 'Search currency name or code',
+              border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Expanded(
-            child: ListView.builder(
-              itemCount: 15,
-              itemBuilder: (context, index) => Padding(
-                padding: const EdgeInsets.only(bottom: 4.0),
-                child: GestureDetector(
-                  onTap: () {
-                    // Handle category selection
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8.0),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.3),
-                          spreadRadius: 2,
-                          blurRadius: 5,
-                          offset: const Offset(0, 3),
+            child: filtered.isEmpty
+                ? const Center(child: Text('No matching currencies'))
+                : ListView.builder(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final currency = filtered[index];
+                      final selected = currency.code == _currency.code;
+                      return ListTile(
+                        title: Text(currency.name),
+                        subtitle: Text(currency.code),
+                        selected: selected,
+                        selectedTileColor: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer,
+                        trailing: Icon(
+                          selected
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_unchecked,
                         ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          "PKR",
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        Text(
-                          "Pakistani Rupee",
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ],
-                    ),
+                        onTap: () => setState(() => _currency = currency),
+                      );
+                    },
                   ),
-                ),
-              ),
-            ),
           ),
-          const SizedBox(height: 27),
-          GestureDetector(
-            onTap: () async {
-              _pageController.nextPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.ease);
-            },
-            child: const SizedBox(
-              height: 60,
-              child: NeuBox(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    SizedBox(width: 1),
-                    Text(
-                      "Set",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 17),
-                    ),
-                    Icon(Icons.arrow_forward_ios_rounded),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          const SizedBox(height: 12),
+          _button('Set ${_currency.code}', _nextPage),
         ],
       ),
     );
   }
 
-  //============================Step 3======================================//
-
-  Widget _buildSetCategoryStep(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Set Categories',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Select the categories that you want:',
-            style: TextStyle(fontSize: 16, fontFamily: 'Montserrat'),
-          ),
-          const SizedBox(height: 16),
-
-          // Suggestions header
-          const Text(
-            "Suggestions",
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 5),
-
-          // Categories List
-          Expanded(
-            child: ListView(
-              children: [
-                _buildCategoryItem('Sports'),
-                _buildCategoryItem('Music'),
-                _buildCategoryItem('Technology'),
-                _buildCategoryItem('Travel'),
-                _buildCategoryItem('Health'),
-                // Add more categories as needed
-              ],
-            ),
-          ),
-
-          // Spacer between list and button
-          const SizedBox(height: 16),
-
-          // Finish button
-          SizedBox(
-            width: MediaQuery.of(context).size.width,
-            height: MediaQuery.of(context).size.width * 0.15,
-            child: NeuBox(
-              child: MaterialButton(
-                onPressed: () async{
-                  final SharedPreferences prefs = await SharedPreferences.getInstance();
-                  await prefs.setBool('firstTime', false);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const HomePage()),
-                  );
-                },
-                child: const Text(
-                  "Finish",
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-// Helper method to build individual category items
-  Widget _buildCategoryItem(String category) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: GestureDetector(
-        onTap: () {
-          // Handle category selection
-        },
-        child: Container(
-          padding: const EdgeInsets.all(16.0),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8.0),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.3),
-                spreadRadius: 2,
-                blurRadius: 5,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Text(
-            category,
-            style: const TextStyle(fontSize: 16),
+  Widget _buildCategoryStep() {
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      children: [
+        const Text(
+          'Set Categories',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Select the categories you want (${_selectedCategories.length} selected):',
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _categoryController,
+          maxLength: 40,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.done,
+          onChanged: (_) => setState(() => _categoryError = null),
+          onSubmitted: (_) => _addCategory(),
+          decoration: InputDecoration(
+            labelText: 'Add a new category',
+            hintText: 'For example, Pet care',
+            border: const OutlineInputBorder(),
+            errorText: _categoryError,
+            errorMaxLines: 2,
           ),
         ),
-      ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            onPressed: _categoryController.text.trim().isEmpty
+                ? null
+                : _addCategory,
+            icon: const Icon(Icons.add),
+            label: const Text('Add Category'),
+          ),
+        ),
+        const SizedBox(height: 16),
+        for (final category in _categories)
+          Card(
+            child: CheckboxListTile(
+              title: Text(category),
+              value: _selectedCategories.contains(category),
+              controlAffinity: ListTileControlAffinity.trailing,
+              onChanged: (selected) => setState(() {
+                if (selected == true) {
+                  _selectedCategories.add(category);
+                } else {
+                  _selectedCategories.remove(category);
+                }
+                _categoryError = null;
+              }),
+            ),
+          ),
+        const SizedBox(height: 20),
+        _button(_saving ? 'Saving...' : 'Finish', _finish),
+        const SizedBox(height: 12),
+      ],
     );
-  }
-}
-
-class RegistrationController extends GetxController {
-  var currentStep = 0;
-
-  void setCurrentStep(int step) {
-    currentStep = step;
-    update();
-  }
-
-  Future<void> saveRegistrationData() async {
-    final prefs = await SharedPreferences.getInstance();
   }
 }
